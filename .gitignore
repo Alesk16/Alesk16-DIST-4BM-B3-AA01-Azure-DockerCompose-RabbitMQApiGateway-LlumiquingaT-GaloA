@@ -1,0 +1,85 @@
+# VISUAL STUDIO
+.vs/
+**/.vs/
+
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# .NET - ARCHIVOS GENERADOS
+bin/
+obj/
+
+**/bin/
+**/obj/
+
+Debug/
+Release/
+
+**/Debug/
+**/Release/
+
+# ARCHIVOS TEMPORALES
+*.tmp
+*.temp
+*.log
+*.cache
+
+~$*
+*~
+
+# VISUAL STUDIO CODE / OTROS IDE
+.vscode/
+.idea/
+
+# VARIABLES DE ENTORNO / CREDENCIALES
+.env
+.env.*
+!.env.example
+
+appsettings.Local.json
+appsettings.*.Local.json
+
+
+# SQL SERVER - ARCHIVOS FISICOS Y BACKUPS
+*.mdf
+*.ldf
+*.ndf
+*.bak
+
+# SISTEMA OPERATIVO
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+
+# DOCKER - ARCHIVOS TEMPORALES
+docker-compose.override.yml
+
+
+# PAQUETES / RESULTADOS DE COMPILACION
+*.nupkg
+*.snupkg
+packages/
+
+# COBERTURA Y PRUEBAS
+TestResults/
+coverage/
+coverage.*
+
+# PUBLICACION .NET
+publish/
+**/publish/
+
+# ARCHIVOS CON CONTRASEÑAS / SECRETOS DE AZURE - NUNCA SUBIR
+memoria*comandos*.ps1
+memoria*de*comandos*.ps1
+claves*azure*.txt
+claves-azure.txt
+*.secrets.json
+
+# INSTALADORES Y LOGS DE AZURE CLI (pesados, no pertenecen al repo)
+AzureCLI*.msi
+azcli*_log.txt
+azcli64_log.txt

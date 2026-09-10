@@ -1,0 +1,93 @@
+# For more info on HTTP files go to https://aka.ms/vs/httpfile
+@ApiGateway = http://localhost:8085
+@token =
+
+### Login como Administrador (puede crear/editar/eliminar) -> copia el "token" de la respuesta y pégalo arriba en @token
+POST {{ApiGateway}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "usuario": "admin",
+  "password": "1234"
+}
+
+### Login como Usuario normal (solo puede consultar) -> copia el "token" de la respuesta y pégalo arriba en @token
+POST {{ApiGateway}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "usuario": "usuario",
+  "password": "1234"
+}
+
+### Listar pacientes (requiere token, cualquier rol)
+GET {{ApiGateway}}/api/Pacientes
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Obtener un paciente por id (requiere token, cualquier rol)
+GET {{ApiGateway}}/api/Pacientes/1
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Crear paciente (requiere token de Administrador)
+POST {{ApiGateway}}/api/Pacientes
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "cedula": "1799999999",
+  "nombre": "Prueba",
+  "apellido": "JWT",
+  "direccion": "Av. Siempre Viva"
+}
+
+### Actualizar paciente (requiere token de Administrador)
+PUT {{ApiGateway}}/api/Pacientes/1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "idPaciente": 1,
+  "cedula": "1799999999",
+  "nombre": "Prueba",
+  "apellido": "JWT Editado",
+  "direccion": "Av. Siempre Viva"
+}
+
+### Eliminar paciente (requiere token de Administrador)
+DELETE {{ApiGateway}}/api/Pacientes/1
+Authorization: Bearer {{token}}
+
+### Listar historiales clínicos (requiere token, cualquier rol)
+GET {{ApiGateway}}/api/HistorialClinicos
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Obtener un historial por id (requiere token, cualquier rol)
+GET {{ApiGateway}}/api/HistorialClinicos/1
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Listar historiales de un paciente específico (requiere token, cualquier rol)
+GET {{ApiGateway}}/api/HistorialClinicos/paciente/1
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### Actualizar un historial (requiere token de Administrador)
+PUT {{ApiGateway}}/api/HistorialClinicos/1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "idHistorialClinico": 1,
+  "idPaciente": 1,
+  "numHistoria": "HC-000001",
+  "diagnostico": "Control de rutina",
+  "tratamiento": "Ninguno",
+  "fecha": "2026-09-10"
+}
+
+### Eliminar un historial (requiere token de Administrador)
+DELETE {{ApiGateway}}/api/HistorialClinicos/1
+Authorization: Bearer {{token}}

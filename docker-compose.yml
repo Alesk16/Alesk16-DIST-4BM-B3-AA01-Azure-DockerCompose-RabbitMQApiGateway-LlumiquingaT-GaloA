@@ -1,0 +1,97 @@
+services:
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth:
+    build:
+      context: ./Auth/Auth.Api
+      dockerfile: Dockerfile
+    container_name: auth
+    ports:
+      - "8086:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: "http://+:8080"
+      Jwt__Key: "ClaveSuperSecretaClinicaJWT2026CambiarEnProduccion"
+      Jwt__Issuer: "ClinicaApi"
+      Jwt__Audience: "ClinicaApiUsers"
+      Jwt__ExpireMinutes: 60
+
+  paciente:
+    build:
+      context: ./Paciente/Paciente.Api
+      dockerfile: Dockerfile
+    container_name: paciente
+    ports:
+      - "8083:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__PacientesConnection: "Server=host.docker.internal,1433;Database=PacienteDB;User Id=usuario_paciente;Password=1234;TrustServerCertificate=True;Encrypt=False;"
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__Port: 5672
+      RabbitMQ__UserName: admin
+      RabbitMQ__Password: admin123
+      RabbitMQ__QueueName: paciente_creado
+      Jwt__Key: "ClaveSuperSecretaClinicaJWT2026CambiarEnProduccion"
+      Jwt__Issuer: "ClinicaApi"
+      Jwt__Audience: "ClinicaApiUsers"
+      Jwt__ExpireMinutes: 60
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  historialclinico:
+    build:
+      context: ./HistorialClinico/HistorialClinico.Api
+      dockerfile: Dockerfile
+    container_name: historialclinico
+    ports:
+      - "8084:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__HistorialClinicoConnection: "Server=host.docker.internal,1433;Database=HistorialClinicoDB;User Id=usuario_HistorialClinico;Password=1234;TrustServerCertificate=True;Encrypt=False;"
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__Port: 5672
+      RabbitMQ__UserName: admin
+      RabbitMQ__Password: admin123
+      RabbitMQ__QueueName: paciente_creado
+      Jwt__Key: "ClaveSuperSecretaClinicaJWT2026CambiarEnProduccion"
+      Jwt__Issuer: "ClinicaApi"
+      Jwt__Audience: "ClinicaApiUsers"
+      Jwt__ExpireMinutes: 60
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  apigateway:
+    build:
+      context: ./ApiGatewayB/ApiGatewayB/ApiGatewayB
+      dockerfile: Dockerfile
+    container_name: apigateway
+    ports:
+      - "8085:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: "http://+:8080"
+      ReverseProxy__Clusters__pacientesCluster__Destinations__pacientesDestination__Address: "http://paciente:8080/"
+      ReverseProxy__Clusters__historialCluster__Destinations__historialDestination__Address: "http://historialclinico:8080/"
+      ReverseProxy__Clusters__authCluster__Destinations__authDestination__Address: "http://auth:8080/"
+    depends_on:
+      - paciente
+      - historialclinico
+      - auth

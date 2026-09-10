@@ -1,0 +1,523 @@
+{
+  "info": {
+    "_postman_id": "b6f6a3b0-1c2e-4c4a-9a8e-clinica-eda-2026",
+    "name": "Clinica - Microservicios (Azure)",
+    "description": "Colección de pruebas automatizadas para la arquitectura de microservicios desplegada en Azure Container Apps: ApiGateway (YARP) -> Auth.Api, Paciente.Api, HistorialClinico.Api. Ejecutar con el Collection Runner de Postman (Run Collection) o con Newman (`newman run Clinica-Microservicios.postman_collection.json`).\n\nOrden de ejecución: 00 - Auth -> 01 - Pacientes -> 02 - HistorialClinicos -> 99 - Limpieza. Todas las peticiones pasan por el Api Gateway (variable {{gatewayUrl}}), nunca directo a los microservicios, para probar también el enrutamiento de YARP.\n\nSi cambia el FQDN del gateway (por ejemplo tras recrear el Container App), actualiza la variable de colección `gatewayUrl`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "gatewayUrl", "value": "https://apigateway.kindmeadow-02f0a420.eastus.azurecontainerapps.io", "type": "string" },
+    { "key": "tokenAdmin", "value": "", "type": "string" },
+    { "key": "tokenUsuario", "value": "", "type": "string" },
+    { "key": "pacienteId", "value": "", "type": "string" },
+    { "key": "historialId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "00 - Auth",
+      "item": [
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"La respuesta contiene un token JWT\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.token).to.be.a('string').and.not.empty;",
+                  "    pm.collectionVariables.set(\"tokenAdmin\", jsonData.token);",
+                  "});",
+                  "",
+                  "pm.test(\"El rol devuelto es Administrador\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.rol).to.eql(\"Administrador\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"admin\",\n  \"password\": \"1234\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/Auth/login",
+              "host": [ "{{gatewayUrl}}" ],
+              "path": [ "api", "Auth", "login" ]
+            },
+            "description": "Login vía el gateway -> Auth.Api. Guarda el token en la variable de colección `tokenAdmin`."
+          }
+        },
+        {
+          "name": "Login Usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"La respuesta contiene un token JWT\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.token).to.be.a('string').and.not.empty;",
+                  "    pm.collectionVariables.set(\"tokenUsuario\", jsonData.token);",
+                  "});",
+                  "",
+                  "pm.test(\"El rol devuelto es Usuario\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.rol).to.eql(\"Usuario\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"usuario\",\n  \"password\": \"1234\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/Auth/login",
+              "host": [ "{{gatewayUrl}}" ],
+              "path": [ "api", "Auth", "login" ]
+            },
+            "description": "Login con el usuario de rol 'Usuario'. Guarda el token en `tokenUsuario`."
+          }
+        },
+        {
+          "name": "Login credenciales invalidas (401 esperado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"noexiste\",\n  \"password\": \"incorrecta\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/Auth/login",
+              "host": [ "{{gatewayUrl}}" ],
+              "path": [ "api", "Auth", "login" ]
+            },
+            "description": "Verifica que credenciales invalidas devuelvan 401."
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 - Pacientes",
+      "item": [
+        {
+          "name": "Crear Paciente (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 201 (Created)\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"El paciente creado tiene un idPaciente numerico\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.idPaciente).to.be.a('number');",
+                  "    pm.collectionVariables.set(\"pacienteId\", jsonData.idPaciente);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{tokenAdmin}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cedula\": \"1799999999\",\n  \"nombre\": \"Postman\",\n  \"apellido\": \"Automatizado\",\n  \"direccion\": \"Calle de Pruebas 123\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/Pacientes",
+              "host": [ "{{gatewayUrl}}" ],
+              "path": [ "api", "Pacientes" ]
+            },
+            "description": "Requiere rol Administrador. Al crearse, Paciente.Api publica un evento en RabbitMQ que HistorialClinico.Api consume para autogenerar un historial (ver carpeta 02)."
+          }
+        },
+        {
+          "name": "Listar Pacientes (Usuario)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"La respuesta es un arreglo con al menos 1 paciente\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "    pm.expect(jsonData.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{tokenUsuario}}", "type": "string" } ] },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/Pacientes",
+              "host": [ "{{gatewayUrl}}" ],
+              "path": [ "api", "Pacientes" ]
+            },
+            "description": "Cualquier usuario autenticado (Administrador o Usuario) puede listar."
+          }
+        },
+        {
+          "name": "Obtener Paciente por Id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"El id devuelto coincide con el paciente creado\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(String(jsonData.idPaciente)).to.eql(String(pm.collectionVariables.get(\"pacienteId\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{tokenUsuario}}", "type": "string" } ] },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/Pacientes/{{pacienteId}}",
+              "host": [ "{{gatewayUrl}}" ],
+              "path": [ "api", "Pacientes", "{{pacienteId}}" ]
+            }
+          }
+        },
+        {
+          "name": "Actualizar Paciente (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 204 (No Content)\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{tokenAdmin}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idPaciente\": {{pacienteId}},\n  \"cedula\": \"1799999999\",\n  \"nombre\": \"Postman\",\n  \"apellido\": \"Actualizado\",\n  \"direccion\": \"Calle de Pruebas 456\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/Pacientes/{{pacienteId}}",
+              "host": [ "{{gatewayUrl}}" ],
+              "path": [ "api", "Pacientes", "{{pacienteId}}" ]
+            }
+          }
+        },
+        {
+          "name": "Crear Paciente sin permisos (403 esperado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 403 (Forbidden)\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{tokenUsuario}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cedula\": \"0000000000\",\n  \"nombre\": \"NoDeberia\",\n  \"apellido\": \"Crearse\",\n  \"direccion\": \"N/A\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/Pacientes",
+              "host": [ "{{gatewayUrl}}" ],
+              "path": [ "api", "Pacientes" ]
+            },
+            "description": "El rol 'Usuario' no tiene permiso para crear pacientes. Verifica la autorizacion por rol."
+          }
+        },
+        {
+          "name": "Pacientes sin token (401 esperado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 401 (Unauthorized)\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "noauth" },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/Pacientes",
+              "host": [ "{{gatewayUrl}}" ],
+              "path": [ "api", "Pacientes" ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - HistorialClinicos",
+      "item": [
+        {
+          "name": "Listar Historiales (Usuario)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"La respuesta es un arreglo\", function () {",
+                  "    pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{tokenUsuario}}", "type": "string" } ] },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/HistorialClinicos",
+              "host": [ "{{gatewayUrl}}" ],
+              "path": [ "api", "HistorialClinicos" ]
+            }
+          }
+        },
+        {
+          "name": "Historial autogenerado por RabbitMQ (paciente creado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "if (Array.isArray(jsonData) && jsonData.length > 0) {",
+                  "    pm.test(\"El historial autogenerado tiene el formato HC-0000XX\", function () {",
+                  "        pm.expect(jsonData[0].numHistoria).to.match(/^HC-\\d{6}$/);",
+                  "    });",
+                  "} else {",
+                  "    console.warn('Aun no aparece el historial autogenerado: RabbitMQ/HistorialClinico.Api procesa el evento de forma asincrona. Si esto falla, espera unos segundos y vuelve a correr esta peticion sola.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{tokenUsuario}}", "type": "string" } ] },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/HistorialClinicos/paciente/{{pacienteId}}",
+              "host": [ "{{gatewayUrl}}" ],
+              "path": [ "api", "HistorialClinicos", "paciente", "{{pacienteId}}" ]
+            },
+            "description": "Paciente.Api publica 'paciente_creado' en RabbitMQ al crear el paciente de la carpeta 01; HistorialClinico.Api lo consume en segundo plano y crea automaticamente un historial con NumHistoria = HC-{idPaciente:D6}. Es un proceso asincrono: si corres toda la coleccion muy rapido puede que el mensaje aun no se haya procesado (el test no falla la corrida en ese caso, solo avisa)."
+          }
+        },
+        {
+          "name": "Crear Historial manual (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 201 (Created)\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"El historial creado tiene un idHistorialClinico numerico\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.idHistorialClinico).to.be.a('number');",
+                  "    pm.collectionVariables.set(\"historialId\", jsonData.idHistorialClinico);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{tokenAdmin}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idPaciente\": {{pacienteId}},\n  \"numHistoria\": \"HC-POSTMAN\",\n  \"diagnostico\": \"Diagnostico de prueba (Postman)\",\n  \"tratamiento\": \"Tratamiento de prueba (Postman)\",\n  \"fecha\": \"2026-09-10T00:00:00\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/HistorialClinicos",
+              "host": [ "{{gatewayUrl}}" ],
+              "path": [ "api", "HistorialClinicos" ]
+            },
+            "description": "Requiere rol Administrador. Este es un registro manual adicional, distinto del autogenerado por RabbitMQ."
+          }
+        },
+        {
+          "name": "Actualizar Historial (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 204 (No Content)\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{tokenAdmin}}", "type": "string" } ] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idHistorialClinico\": {{historialId}},\n  \"idPaciente\": {{pacienteId}},\n  \"numHistoria\": \"HC-POSTMAN\",\n  \"diagnostico\": \"Diagnostico actualizado (Postman)\",\n  \"tratamiento\": \"Tratamiento actualizado (Postman)\",\n  \"fecha\": \"2026-09-10T00:00:00\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/HistorialClinicos/{{historialId}}",
+              "host": [ "{{gatewayUrl}}" ],
+              "path": [ "api", "HistorialClinicos", "{{historialId}}" ]
+            }
+          }
+        },
+        {
+          "name": "Eliminar Historial manual (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 204 (No Content)\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{tokenAdmin}}", "type": "string" } ] },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/HistorialClinicos/{{historialId}}",
+              "host": [ "{{gatewayUrl}}" ],
+              "path": [ "api", "HistorialClinicos", "{{historialId}}" ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "99 - Limpieza",
+      "item": [
+        {
+          "name": "Eliminar Paciente de prueba (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 204 (No Content)\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{tokenAdmin}}", "type": "string" } ] },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/Pacientes/{{pacienteId}}",
+              "host": [ "{{gatewayUrl}}" ],
+              "path": [ "api", "Pacientes", "{{pacienteId}}" ]
+            },
+            "description": "Elimina el paciente creado en la carpeta 01 para dejar la base limpia. El historial autogenerado por RabbitMQ para este paciente queda huerfano (a proposito, para que puedas revisarlo en RabbitMQ Management / la tabla HistorialClinicoDB si quieres)."
+          }
+        }
+      ]
+    }
+  ]
+}
