@@ -73,8 +73,7 @@ publish/
 **/publish/
 
 # ARCHIVOS CON CONTRASEÑAS / SECRETOS DE AZURE - NUNCA SUBIR
-memoria*comandos*.ps1
-memoria*de*comandos*.ps1
+# (memoria de comandos: se decidio subirla igual, con contraseñas reales, a este repo)
 claves*azure*.txt
 claves-azure.txt
 *.secrets.json
